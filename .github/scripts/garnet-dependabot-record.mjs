@@ -237,6 +237,17 @@ export function planWorkloads(root, changed) {
         `bundle _${version}_ install`);
       note = 'BUNDLE_FROZEN=true, exact lockfile bundler version';
     }
+    // Ancestor promotion can occur after the additional helper delegates.
+    // Enforce ambiguity guards on the FINAL project, not just the changed path.
+    if (kind === 'node' && exists(root, dir, 'yarn.lock')) {
+      assert(['pnpm-lock.yaml', 'package-lock.json', 'npm-shrinkwrap.json']
+        .every(name => !exists(root, dir, name)),
+      'BLOCKED: competing Node lockfiles at final selected project require reviewed upstream-workflow manager selection');
+    }
+    if (kind === 'python') {
+      assert(!(exists(root, dir, 'uv.lock') && exists(root, dir, 'poetry.lock')),
+        'BLOCKED: both uv.lock and poetry.lock at final selected project require an explicit ecosystem policy');
+    }
     const key = `${kind}:${dir}:${kind === 'python' && scope === 'requirements-install' ? path.posix.basename(file) : ''}`;
     if (plans.has(key)) plans.get(key).changed_manifests.push(file);
     else plans.set(key, {id: key, ecosystem: kind, directory: dir, commands, scope, locked, note, changed_manifests: [file]});
